@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import shutil
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
@@ -40,22 +39,17 @@ def get(relative_path: str) -> None:
         destination.unlink()
 
     remote_path = Path(relative_path)
-    cached_path = Path(
-        hf_hub_download(
-            repo_id=REPO_ID,
-            filename=remote_path.name,
-            subfolder=remote_path.parent.as_posix() if remote_path.parent != Path(".") else None,
-            repo_type="dataset",
-        )
-    )
-    # HF cache entries may be snapshot symlinks. Resolve to the underlying blob so we
-    # always materialize a real file in data/, not a broken relative symlink.
-    cached_source = cached_path.resolve(strict=True)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.link(cached_source, destination)
-    except OSError:
-        shutil.copy2(cached_source, destination)
+    # Download directly into the repo tree instead of downloading into the HF cache
+    # and then copying each shard into data/, which can double storage usage.
+    hf_hub_download(
+        repo_id=REPO_ID,
+        filename=remote_path.name,
+        subfolder=remote_path.parent.as_posix() if remote_path.parent != Path(".") else None,
+        repo_type="dataset",
+        local_dir=ROOT,
+        local_dir_use_symlinks=False,
+    )
 
 
 def manifest_path() -> Path:
