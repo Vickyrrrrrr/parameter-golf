@@ -8,4 +8,6 @@ data/manifest.json
 data/docs_selected.jsonl
 .mypy_cache/
 .venv
+.venv312/
 logs/
+DEBUGGING_SESSION_SUMMARY.md
