@@ -11,6 +11,7 @@ REMOTE_ROOT_PREFIX = os.environ.get("MATCHED_FINEWEB_REMOTE_ROOT_PREFIX", "datas
 ROOT = Path(__file__).resolve().parent
 DATASETS_DIR = ROOT / "datasets"
 TOKENIZERS_DIR = ROOT / "tokenizers"
+DOWNLOAD_STAGING_DIR = ROOT / "_hf_download"
 
 def dataset_dir_for_variant(name: str) -> str:
     if name == "byte260":
@@ -40,16 +41,20 @@ def get(relative_path: str) -> None:
 
     remote_path = Path(relative_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    # Download directly into the repo tree instead of downloading into the HF cache
-    # and then copying each shard into data/, which can double storage usage.
-    hf_hub_download(
+    # Download into a staging directory on the same filesystem as data/ and then
+    # move into place, which avoids keeping a second full copy in the HF cache.
+    downloaded_path = Path(
+        hf_hub_download(
         repo_id=REPO_ID,
         filename=remote_path.name,
         subfolder=remote_path.parent.as_posix() if remote_path.parent != Path(".") else None,
         repo_type="dataset",
-        local_dir=ROOT,
-        local_dir_use_symlinks=False,
+        local_dir=DOWNLOAD_STAGING_DIR,
     )
+    )
+    if downloaded_path.resolve() != destination.resolve():
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        downloaded_path.replace(destination)
 
 
 def manifest_path() -> Path:
